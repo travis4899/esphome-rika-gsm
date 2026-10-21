@@ -71,7 +71,7 @@ template<typename... Ts> class RikaGsmSendCommandAction : public Action<Ts...> {
   RikaGsmSendCommandAction(RikaGSMComponent *parent) : parent_(parent) {}
   TEMPLATABLE_VALUE(std::string, command)
 
-  void play(Ts... x) {
+  void play(const Ts&... x) {
     auto command = this->command_.value(x...);
     this->parent_->send_sms(command);
   }
