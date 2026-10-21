@@ -26,7 +26,7 @@ uart:
 rika_gsm:
   id: ria_gsm_component_1
   pin: "1234"
-  # phone_number: "+33685967412"
+  phone_number: "+33612345678"
 
 text_sensor:
   - platform: rika_gsm
