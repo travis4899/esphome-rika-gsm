@@ -14,7 +14,7 @@ CONF_RIKA_GSM_ID = "rika_gsm_id"
 CONF_PHONE_NUMBER = "phone_number"
 CONF_COMMAND = "command"
 
-DEFAULT_PHONE_NUMBER = "+33685967412"
+DEFAULT_PHONE_NUMBER = "+33612345678"
 
 rika_gsm_component_ns = cg.esphome_ns.namespace('rika_gsm')
 RikaGSMComponent = rika_gsm_component_ns.class_('RikaGSMComponent', cg.Component)
