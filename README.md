@@ -8,6 +8,12 @@ The GSM module share the same DA15 port as the ambiant temperature sensor at the
 
 Also the stove use 5v logic on the serial connection so some level shifting or protection could be required on your board.
 
+---------------
+Attention, schema incorrect
+---------------
+Le level shifter est à remplacer par un MAX3232 RS232 (côté poêle) <-> TTL (côté ESP)
+Les MAX3232 ne sont en général qu'à raccorder une seule fois pour l'alim (3V ou 5V selon modèle)
+
 <img src="schema/esp_rika_stove.png">
 
 ## Config
