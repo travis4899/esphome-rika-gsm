@@ -2,15 +2,14 @@
 
 The ```rika_gsm``` component emulate the gsm module that can be installed on rika stove. It provide a way to send command and retreive the sms the stove want to send.
 
-## Hardaware
+## Hardware
 
 The GSM module share the same DA15 port as the ambiant temperature sensor at the back of the stove. The connection can be done by soldering new cables on sensor port or by creating a split cable to place in between.
 
 Also the stove use 5v logic on the serial connection so some level shifting or protection could be required on your board.
 
----------------
-Attention, schema incorrect
----------------
+## Attention, schema incorrect
+
 Le level shifter est à remplacer par un MAX3232 RS232 (côté poêle) <-> TTL (côté ESP)
 Les MAX3232 ne sont en général qu'à raccorder une seule fois pour l'alim (3V ou 5V selon modèle)
 
