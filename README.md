@@ -117,7 +117,7 @@ Adapter le chemin si le composant est utilisé depuis le github :
 external_components:
   - source:
         type: git
-        url: https://github.com/n-serrette/esphome_rika_gsm
+        url: https://github.com/travis4899/esphome-rika-gsm
         ref: main
     components: [ rika_gsm ]
 ```
