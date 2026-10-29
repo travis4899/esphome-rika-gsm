@@ -322,6 +322,20 @@ La journalisation série classique est désactivée sur l'UART pour ne pas pertu
 
 Le bloc `uart.debug` affiche les données reçues et émises en hexadécimal. Il est utile pour le diagnostic et peut être conservé en fonctionnement normal.
 
+## Validation du numéro de téléphone
+
+Pour recevoir les messages d'erreur envoyés par le poêle, il est nécessaire de **faire valider au préalable le numéro de téléphone par le poêle**. Cette opération doit être effectuée manuellement depuis Home Assistant, à l'aide de l'action `send_command` exposée par ESPHome.
+
+Envoyer la commande suivante :
+
+```text
+TEL "++33612345678"
+```
+
+Remplacer `33612345678` par le numéro de téléphone à enregistrer. **Attention : les deux signes `+` au début du numéro sont indispensables**, même si cela peut sembler inhabituel. Avec un seul `+`, la commande ne fonctionne pas.
+
+Une fois le numéro validé par le poêle, celui-ci pourra envoyer les messages SMS contenant notamment les erreurs et les informations de fonctionnement.
+
 ## Dépannage
 
 - **Aucun échange UART :** vérifier l'alimentation, la masse commune, le sens TX/RX, le câblage du MAX3232 et le débit de 38 400 bauds.
