@@ -1,0 +1,159 @@
+# --------------------------------------
+# Rika Como - Emulation GSM avec ESP32
+# --------------------------------------
+# https://github.com/n-serrette/esphome_rika_gsm
+# Copié en local - Erreur de classe dans .h
+# --------------------------------------
+# Cablage
+# --------------------------------------
+# ESP TX:GPIO0 -> Max3232 côté TTL flèche OUT !
+# ESP RX:GPIO1 -> Max3232 côté TTL flèche IN !
+# DB15 TX:PIN02 -> Max3232 côté RS232 flèche OUT !
+# DB15 RX:PIN03 -> Max3232 côté RS232 flèche IN !
+# Max3232 : Attention alim d'un seul côté 3v
+# --------------------------------------
+
+esphome:
+  name: poele-rika
+
+esp32:
+  variant: ESP32C3
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: esphome-rika-gsm/components
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  output_power: 8.5dB
+
+ota:
+  - platform: esphome
+    encryption:
+
+logger:
+  level: DEBUG
+  baud_rate: 0
+
+uart:
+  id: rika_uart_bus
+  tx_pin: GPIO0
+  rx_pin: GPIO1
+  baud_rate: 38400
+  debug:
+    direction: BOTH
+    dummy_receiver: false
+    after:
+      timeout: 100ms
+    sequence:
+      - lambda: UARTDebug::log_hex(
+          direction, bytes, 16, esphome::StringRef());
+  
+rika_gsm:
+  id: ria_gsm_component_1
+  pin: "1234"
+  phone_number: "+33612345678"
+
+text_sensor:
+  - platform: rika_gsm
+    raw_status:
+      name: "Status poêle"
+      id: rika_status
+      on_value:
+        then:
+          - lambda: |-
+              std::string s = x;
+
+              // Le poêle est arrêté
+              if (s.find("STOVE OFF") != std::string::npos) {
+                id(rika_climate).set_mode(
+                  climate::CLIMATE_MODE_OFF);
+                id(rika_climate).publish_state();
+                return;
+              }
+
+              // Le poêle est allumé : lire ROOM XX
+              auto pos = s.find("ROOM ");
+              if (s.find("STOVE ON") != std::string::npos &&
+                  pos != std::string::npos) {
+                int temp = atoi(s.c_str() + pos + 5);
+
+                if (temp >= 10 && temp <= 30) {
+                  id(rika_climate).set_mode(
+                    climate::CLIMATE_MODE_HEAT);
+                  id(rika_climate).set_target_temperature(temp);
+                  id(rika_climate).publish_state();
+                }
+              }
+
+binary_sensor:
+  - platform: rika_gsm
+    gsm_status:
+      name: "Status GSM"
+
+climate:
+  - platform: template
+    id: rika_climate
+    name: "Poêle RIKA"
+    icon: mdi:stove
+
+    optimistic: true
+    restore_mode: RESTORE
+    initial_state:
+      mode: "OFF"
+      target_temperature: 19 °C
+
+    supported_modes:
+      - "OFF"
+      - HEAT
+
+    visual:
+      min_temperature: 15 °C
+      max_temperature: 30 °C
+      temperature_step: 1 °C
+
+    set_target_temperature_action:
+      - rika_gsm.send_command:
+          command: !lambda |-
+            return "r" + std::to_string((int) x);
+      - climate.template.publish:
+          id: rika_climate
+          mode: HEAT
+          target_temperature: !lambda "return x;"
+
+    set_mode_action:
+      - if:
+          condition:
+            lambda: 'return x == climate::CLIMATE_MODE_OFF;'
+          then:
+            - rika_gsm.send_command:
+                command: "OFF"
+          else:
+            - rika_gsm.send_command:
+                command: !lambda |-
+                  return "r" + std::to_string(
+                    (int) id(rika_climate).target_temperature
+                  );
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+  actions:
+    - action: turn_on
+      then:
+        - rika_gsm.send_command:
+            command: "ON"
+
+    - action: turn_off
+      then:
+        - rika_gsm.send_command:
+            command: "OFF"
+
+    - action: send_command
+      variables:
+        command: string
+      then:
+        - rika_gsm.send_command:
+            command: !lambda "return command;"
