@@ -111,7 +111,16 @@ external_components:
   - source: esphome-rika-gsm/components
 ```
 
-Adapter le chemin si le composant est placé dans un autre répertoire.
+Adapter le chemin si le composant est utilisé depuis le github :
+
+```yaml
+external_components:
+  - source:
+        type: git
+        url: https://github.com/n-serrette/esphome_rika_gsm
+        ref: main
+    components: [ rika_gsm ]
+```
 
 ### UART et composant RIKA
 
