@@ -1,108 +1,123 @@
-# ESPHome RIKA GSM emulator
+# ESPHome RIKA GSM — Fork ESP32-C3
 
-This fork documents an ESPHome setup that emulates the GSM module used
-by a compatible RIKA pellet stove. It allows the stove to be controlled
-through its serial interface and exposes the status messages sent by the
-stove to Home Assistant.
+Fork du projet original [n-serrette/esphome_rika_gsm](https://github.com/n-serrette/esphome_rika_gsm), qui permet d'émuler le module GSM proposé en option sur certains poêles à granulés RIKA.
 
-Tested setup: - **Stove:** RIKA Como, first generation - **Controller:**
-ESP32-C3 Super Mini - **Serial adapter:** MAX3232 RS232-to-TTL -
-**Serial speed:** 38400 baud - **Framework:** ESPHome / ESP-IDF
+Ce fork documente une installation fonctionnelle sur un **RIKA Como de première génération**, avec un **ESP32-C3 Super Mini** et un convertisseur **MAX3232 RS232 vers TTL**.
 
-This is a community project, not an official RIKA product. Only the
-setup described above has been tested; other stove models and revisions
-may differ.
+Le composant permet d'envoyer des commandes au poêle et de récupérer les messages de statut qu'il transmet. L'intégration Home Assistant ajoute une entité `climate` pour gérer la consigne et l'arrêt du poêle.
 
-## Features
+> Projet communautaire non officiel, non affilié à RIKA. Seule la configuration décrite ici a été testée.
 
--   Emulates the stove's GSM/SMS exchange through the `rika_gsm` ESPHome
-    component.
--   Sends commands through `rika_gsm.send_command`.
--   Exposes the latest stove status as a text sensor.
--   Exposes a binary sensor for the GSM option status.
--   Provides a Home Assistant `climate` entity for on/off and target
-    temperature.
--   Parses status messages such as
-    `STOVE ON - ROOM 21 - PLEASE SAVE TEL NUMBER`.
+## Schéma de câblage
 
-`ROOM XX` is interpreted as the **target temperature**, not as a
-measured room temperature.
+Le schéma d'origine est conservé ci-dessous pour référence.
 
-## Hardware
+**Attention : le level shifter représenté sur le schéma est à remplacer par un MAX3232.** Le MAX3232 assure la conversion entre le signal RS232 côté poêle et les niveaux logiques TTL côté ESP32-C3.
 
-The GSM module shares the DA15 connector at the rear of the stove with
-the ambient temperature sensor. Use a suitable split cable or connector.
-**Do not disconnect or disturb the ambient-temperature probe** used by
-the stove for room-temperature regulation.
+<img src="schema/esp_rika_stove.png">
 
-The original diagram is retained:
+Le module GSM et la sonde de température ambiante partagent le connecteur DA15 situé à l'arrière du poêle. Le raccordement peut être réalisé avec un câble en Y ou un connecteur adapté.
 
-`<img src="schema/esp_rika_stove.png" alt="Original RIKA stove wiring diagram">`{=html}
+**Ne pas déconnecter ni perturber la sonde de température ambiante**, qui reste utilisée par le poêle pour sa régulation.
 
-> **Important:** the level shifter drawn in the original diagram is not
-> the adapter used in this installation. This setup uses a MAX3232
-> RS232-to-TTL transceiver: the RS232 side connects to the stove and the
-> TTL side to the ESP32-C3. Check the pin labels and signal directions
-> on your exact module; arrow markings and board layouts can differ.
+## Matériel et configuration testés
 
-### Wiring used in the tested setup
+- **Poêle :** RIKA Como, première génération
+- **Carte :** ESP32-C3 Super Mini
+- **Convertisseur série :** MAX3232 RS232 vers TTL
+- **Débit UART :** 38 400 bauds
+- **Framework :** ESPHome avec ESP-IDF
+- **Supervision :** Home Assistant via l'API native ESPHome
 
-  -----------------------------------------------------------------------
-  Connection                          Destination
-  ----------------------------------- -----------------------------------
-  Stove DA15 pin 1 (+5 V)             ESP32-C3 `5V` input
+Les autres modèles de poêles RIKA et les autres débits série ne sont pas vérifiés.
 
-  Stove DA15 pin 5 (GND)              ESP32-C3 `GND`
+## Câblage
 
-  ESP32-C3 GPIO0 (UART TX)            MAX3232 TTL-side input (`IN`,
-                                      toward the adapter)
+### Connexions d'alimentation
 
-  ESP32-C3 GPIO1 (UART RX)            MAX3232 TTL-side output (`OUT`,
-                                      from the adapter)
+| Connecteur du poêle | ESP32-C3 Super Mini |
+|---|---|
+| DA15 broche 1 : +5 V | Entrée `5V` |
+| DA15 broche 5 : GND | `GND` |
 
-  Stove DA15 pin 2 (TX in this setup) MAX3232 RS232-side input (`IN`,
-                                      toward the adapter)
+Le MAX3232 et l'ESP32-C3 doivent partager une masse commune.
 
-  Stove DA15 pin 3 (RX in this setup) MAX3232 RS232-side output (`OUT`,
-                                      from the adapter)
+Une seule broche GND est nécessaire sur l'ESP32-C3 : tous les éléments peuvent être reliés à cette même masse.
 
-  MAX3232 GND                         Common GND
-  -----------------------------------------------------------------------
+### Connexions UART
 
-These are the connections that worked in this installation. Verify the
-pinout and direction for your own stove and adapter before powering the
-circuit. Do not connect RS232 signals directly to ESP32 GPIOs.
+| Signal | Connexion |
+|---|---|
+| ESP32-C3 GPIO0 — TX | MAX3232, côté TTL, entrée `IN` |
+| ESP32-C3 GPIO1 — RX | MAX3232, côté TTL, sortie `OUT` |
+| DA15 broche 2 — TX du poêle dans ce montage | MAX3232, côté RS232, entrée `IN` |
+| DA15 broche 3 — RX du poêle dans ce montage | MAX3232, côté RS232, sortie `OUT` |
 
-### MAX3232 power and ground
+Ces correspondances sont celles du montage testé. Vérifier le sens des signaux sur le module utilisé : les marquages et les flèches peuvent varier selon les fabricants.
 
-The tested adapter was powered at **3.3 V**. Check the specification of
-your exact board before powering it: some adapter boards use different
-transceivers or supply arrangements.
+### Alimentation du MAX3232
 
-On the tested board, the positive supply rails on both sides were
-electrically common. Therefore, connect only one appropriate supply
-point; **do not connect 3.3 V and 5 V to separate `+`/`VCC` terminals if
-they are tied together**.
+Le module utilisé dans ce montage est alimenté en **3,3 V**.
 
-A single ESP32-C3 GND pin is sufficient. The stove, ESP32-C3 and MAX3232
-must share a common ground reference.
+Certains modules adaptateurs ont leurs bornes positives reliées électriquement entre elles. Dans ce cas, ne jamais raccorder simultanément une alimentation 3,3 V et une alimentation 5 V à ces bornes.
 
-## ESPHome configuration
+Vérifier impérativement les caractéristiques du module utilisé avant le branchement.
 
-### External component
+**Ne jamais raccorder directement un signal RS232 à un GPIO de l'ESP32-C3.** Un convertisseur RS232 adapté est indispensable.
 
-This fork stores the component locally:
+## Fonctionnement
 
-``` yaml
+Le composant `rika_gsm` émule le module GSM du poêle :
+
+- Il reçoit les requêtes série du poêle.
+- Il permet de lui transmettre des commandes.
+- Il récupère les messages de statut que le poêle souhaite envoyer.
+- Il expose ces informations dans Home Assistant via ESPHome.
+
+Aucune communication GSM réelle n'est nécessaire. Les échanges SMS sont émulés sur la liaison série.
+
+### Commandes utilisées
+
+| Commande | Fonction |
+|---|---|
+| `ON` | Demande d'allumage |
+| `OFF` | Demande d'arrêt |
+| `r16` | Allumage avec une consigne de 16 °C |
+| `r21` | Allumage avec une consigne de 21 °C |
+| `r24` | Allumage avec une consigne de 24 °C |
+
+Les commandes `rXX` définissent la consigne en degrés Celsius et peuvent allumer le poêle lorsqu'il est à l'arrêt.
+
+### Messages de retour
+
+Le poêle peut transmettre des messages tels que :
+
+- `STOVE ON - ROOM 16 - PLEASE SAVE TEL NUMBER`
+- `STOVE ON - ROOM 21 - PLEASE SAVE TEL NUMBER`
+- `STOVE OFF - PLEASE SAVE TEL NUMBER`
+
+La valeur `ROOM XX` correspond ici à la **consigne de température**, et non à la température ambiante mesurée.
+
+Le poêle ne transmet pas de SMS spontané à chaque modification locale de la consigne. L'entité Home Assistant peut donc afficher une valeur obsolète après une modification directement sur le poêle, jusqu'à la réception d'un nouveau message.
+
+## Configuration ESPHome
+
+### Déclaration du composant externe
+
+Dans ce fork, le composant est stocké localement :
+
+```yaml
 external_components:
   - source: esphome-rika-gsm/components
 ```
 
-### UART and component
+Adapter le chemin si le composant est placé dans un autre répertoire.
 
-The tested ESP32-C3 Super Mini uses GPIO0 for TX and GPIO1 for RX:
+### UART et composant RIKA
 
-``` yaml
+Le montage testé utilise GPIO0 pour TX et GPIO1 pour RX :
+
+```yaml
 uart:
   id: rika_uart_bus
   tx_pin: GPIO0
@@ -119,20 +134,21 @@ uart:
 
 rika_gsm:
   id: ria_gsm_component_1
-  pin: !secret rika_gsm_pin
-  phone_number: !secret rika_gsm_phone_number
+  pin: "1234"
+  phone_number: "+33612345678"
 ```
 
-Configuration options: - `pin` (string): the four-digit PIN configured
-for the stove's GSM option. - `id` (optional): component ID. -
-`phone_number` (optional string): number value used during the emulated
-SMS exchange. This component does not send real SMS messages through a
-cellular network. Use secrets or a dummy value; do not commit a personal
-phone number.
+Paramètres du composant :
 
-### Text sensor and binary sensor
+- `pin` : code PIN à quatre chiffres configuré pour l'option GSM du poêle.
+- `id` : identifiant ESPHome du composant.
+- `phone_number` : numéro utilisé lors de l'émulation des échanges SMS. Aucun SMS réel n'est envoyé par le réseau mobile.
 
-``` yaml
+Le numéro présenté ci-dessus est un exemple. Utiliser une valeur fictive ou un secret dans une configuration publiée.
+
+### Capteur texte et capteur binaire
+
+```yaml
 text_sensor:
   - platform: rika_gsm
     raw_status:
@@ -145,39 +161,41 @@ binary_sensor:
       name: "Status GSM"
 ```
 
--   `raw_status` exposes the latest status/SMS text received from the
-    stove.
--   `gsm_status` indicates whether the stove currently considers the GSM
-    option active.
+- `raw_status` expose le dernier message de statut reçu du poêle.
+- `gsm_status` indique si le poêle considère actuellement l'option GSM comme active.
 
-In the tested setup, the stove polls for commands approximately every
-five seconds. If no request arrives for around ten seconds, the GSM
-status may become inactive until the next stove request. Timing may
-vary.
+Dans le montage testé, le poêle interroge le module environ toutes les cinq secondes. En l'absence de requête pendant une dizaine de secondes, l'état GSM peut repasser à inactif, puis redevenir actif à la prochaine requête.
 
-### Climate entity
+### Entité climate Home Assistant
 
-The climate entity sends `rXX` to set the target temperature and `OFF`
-to stop the stove:
+L'entité `climate` permet de piloter le poêle depuis Home Assistant :
 
-``` yaml
+- Le réglage de la consigne envoie `rXX`.
+- Le mode arrêt envoie `OFF`.
+- Le retour des messages du poêle actualise le mode et la consigne.
+
+```yaml
 climate:
   - platform: template
     id: rika_climate
     name: "Poêle RIKA"
     icon: mdi:stove
+
     optimistic: true
     restore_mode: RESTORE
     initial_state:
       mode: "OFF"
       target_temperature: 19 °C
+
     supported_modes:
       - "OFF"
       - HEAT
+
     visual:
       min_temperature: 15 °C
       max_temperature: 30 °C
       temperature_step: 1 °C
+
     set_target_temperature_action:
       - rika_gsm.send_command:
           command: !lambda |-
@@ -186,6 +204,7 @@ climate:
           id: rika_climate
           mode: HEAT
           target_temperature: !lambda "return x;"
+
     set_mode_action:
       - if:
           condition:
@@ -201,10 +220,11 @@ climate:
                   );
 ```
 
-Add the following automation to the `raw_status` text sensor to
-synchronize the climate entity from received messages:
+### Synchronisation de l'état à partir des messages SMS
 
-``` yaml
+Ajouter l'automatisation suivante à la déclaration du capteur `raw_status` pour synchroniser l'entité `climate` :
+
+```yaml
 text_sensor:
   - platform: rika_gsm
     raw_status:
@@ -215,6 +235,7 @@ text_sensor:
           - lambda: |-
               std::string s = x;
 
+              // Le poêle est arrêté
               if (s.find("STOVE OFF") != std::string::npos) {
                 id(rika_climate).set_mode(
                   climate::CLIMATE_MODE_OFF);
@@ -222,6 +243,7 @@ text_sensor:
                 return;
               }
 
+              // Le poêle est allumé : lire ROOM XX
               auto pos = s.find("ROOM ");
               if (s.find("STOVE ON") != std::string::npos &&
                   pos != std::string::npos) {
@@ -236,32 +258,28 @@ text_sensor:
               }
 ```
 
-Messages handled: - `STOVE ON - ROOM 16 - PLEASE SAVE TEL NUMBER` → mode
-`HEAT`, target 16 °C. - `STOVE ON - ROOM 21 - PLEASE SAVE TEL NUMBER` →
-mode `HEAT`, target 21 °C. - `STOVE OFF - PLEASE SAVE TEL NUMBER` → mode
-`OFF`.
+Les messages `STOVE ON - ROOM XX` mettent le thermostat en mode chauffage et actualisent la consigne. Le message `STOVE OFF` fait passer l'entité en mode arrêt.
 
-The stove does not send a spontaneous status SMS whenever its setpoint
-is changed locally. The Home Assistant climate entity can therefore show
-an outdated target until a later status message arrives.
+### Actions API ESPHome
 
-### API actions
+Les actions API suivantes permettent également d'envoyer des commandes :
 
-Optional API actions for other ESPHome integrations or automations:
-
-``` yaml
+```yaml
 api:
   encryption:
     key: !secret api_encryption_key
+
   actions:
     - action: turn_on
       then:
         - rika_gsm.send_command:
             command: "ON"
+
     - action: turn_off
       then:
         - rika_gsm.send_command:
             command: "OFF"
+
     - action: send_command
       variables:
         command: string
@@ -270,57 +288,48 @@ api:
             command: !lambda "return command;"
 ```
 
-A command can also be sent from an ESPHome automation:
+### Envoi d'une commande depuis une automatisation
 
-``` yaml
+```yaml
 on_...:
   then:
     - rika_gsm.send_command:
         command: "r21"
 ```
 
-`command` is required, accepts a string and is templatable.
+Le paramètre `command` est obligatoire, de type chaîne de caractères, et accepte une valeur calculée par lambda.
 
-## Logging and troubleshooting
+## Journalisation UART
 
-The tested configuration uses:
+Configuration utilisée :
 
-``` yaml
+```yaml
 logger:
   level: DEBUG
   baud_rate: 0
 ```
 
-The logger is disabled on the UART hardware so it does not interfere
-with the stove serial link. The UART debug block logs both directions in
-hexadecimal and is useful for diagnosis. It can be removed if quieter
-logs are preferred.
+La journalisation série classique est désactivée sur l'UART pour ne pas perturber les échanges avec le poêle.
 
--   **No UART traffic:** check power, common GND, TX/RX direction, the
-    MAX3232 pinout and the 38400 baud rate.
--   **Only one direction works:** recheck both sides of the transceiver.
-    Do not rely on arrow markings alone.
--   **GSM status becomes inactive:** the stove may have stopped polling
-    temporarily; check whether it becomes active again on the next
-    request.
--   **Climate temperature does not reflect a local adjustment:** the
-    stove does not appear to send a status SMS for every local setpoint
-    change.
--   **Compile errors:** check the ESPHome version and compatibility of
-    the external component.
+Le bloc `uart.debug` affiche les données reçues et émises en hexadécimal. Il est utile pour le diagnostic et peut être conservé en fonctionnement normal.
 
-## Known limitations
+## Dépannage
 
--   Tested only on one RIKA Como, first generation.
--   Other models and serial speeds are unverified.
--   The climate state is updated from received status messages; local
-    changes may not be reported immediately.
--   The component emulates the GSM/SMS exchange and does not provide
-    real cellular connectivity.
+- **Aucun échange UART :** vérifier l'alimentation, la masse commune, le sens TX/RX, le câblage du MAX3232 et le débit de 38 400 bauds.
+- **Communication dans un seul sens :** contrôler les connexions des deux côtés du convertisseur. Ne pas se fier uniquement aux flèches du module.
+- **État GSM qui repasse à inactif :** le poêle a peut-être interrompu temporairement ses requêtes. Vérifier s'il redevient actif lors de la requête suivante.
+- **Consigne non actualisée après une modification locale :** le poêle ne semble pas transmettre de message spontané pour chaque changement de consigne.
+- **Erreur de compilation :** vérifier la compatibilité du composant externe avec la version d'ESPHome utilisée.
 
-## Credits
+## Limites connues
 
-The original component and initial wiring documentation are from
-[n-serrette/esphome_rika_gsm](https://github.com/n-serrette/esphome_rika_gsm).
-This fork documents the ESP32-C3 Super Mini and MAX3232 setup tested
-with a RIKA Como first-generation stove.
+- Testé uniquement sur un RIKA Como de première génération.
+- Les autres modèles de poêles et les autres débits série ne sont pas vérifiés.
+- La synchronisation du thermostat dépend des messages reçus du poêle.
+- Le projet émule les échanges GSM/SMS, sans connexion cellulaire réelle.
+
+## Crédits
+
+- Projet original : [n-serrette/esphome_rika_gsm](https://github.com/n-serrette/esphome_rika_gsm)
+- Le composant `rika_gsm` et le schéma de câblage initial proviennent du dépôt original.
+- Ce fork documente l'adaptation au **ESP32-C3 Super Mini**, l'utilisation du **MAX3232 RS232-TTL** et l'intégration de l'entité `climate` dans Home Assistant.
